@@ -1,0 +1,781 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Espresso Science: Optimización Lelit Bianca & Uganda Bugisu</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&family=Playfair+Display:wght@700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; background-color: #fdfbf7; color: #2c241b; }
+        h1, h2, h3 { font-family: 'Playfair Display', serif; }
+        .chart-container {
+            position: relative;
+            width: 100%;
+            max-width: 800px;
+            margin: 0 auto;
+            height: 300px;
+            max-height: 400px;
+        }
+        @media (min-width: 768px) {
+            .chart-container { height: 400px; }
+        }
+        .slider-thumb::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 20px;
+            height: 20px;
+            background: #8c6b4f;
+            cursor: pointer;
+            border-radius: 50%;
+        }
+        .slider-track {
+            background: #e5e7eb;
+            height: 8px;
+            border-radius: 4px;
+        }
+        .card {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
+            transition: transform 0.2s;
+        }
+        .card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.05);
+        }
+        .active-nav {
+            border-bottom: 2px solid #8c6b4f;
+            color: #8c6b4f;
+            font-weight: 600;
+        }
+        .hidden-section { display: none; }
+        .fade-in { animation: fadeIn 0.5s ease-in-out; }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+    </style>
+    <!-- Chosen Palette: Warm Coffee & Technical Slate - Background: #fdfbf7 (Cream), Primary: #8c6b4f (Medium Roast), Secondary: #2c241b (Dark Roast), Accent: #d97706 (Amber/Crema) -->
+    <!-- Application Structure Plan: 
+         The app uses a Dashboard approach divided into 4 key thematic pillars:
+         1. Context & Bean: Analysis of the specific Uganda Bugisu SL14 bean and the goal (Body/Acidity).
+         2. Water Chemistry Lab: Interactive simulator for Hoyo de Manzanares water + Mineralization, allowing the user to see the chemical impact.
+         3. Flow Physics (Bianca v3): A dynamic chart showing the proposed pressure/flow profile specifically for the E61 paddle to achieve the taste goals.
+         4. Extraction & Foam: A visual breakdown of solubility physics and foam formation.
+         
+         Why? This structure separates the complex variables (Water, Machine, Bean) into manageable, interactive "labs" before combining them in the extraction conclusion.
+    -->
+    <!-- Visualization & Content Choices:
+         1. Radar Chart (Bean Profile): Shows the sensory target. Goal: Inform. Interaction: None. Justification: Quickly visualize the "Gap" between raw bean potential and target cup. Library: Chart.js.
+         2. Bar Chart (Water Chemistry): Goal: Inform/Simulate. Shows Hardness/Alkalinity balance. Interaction: Sliders to adjust source TDS (Hoyo water varies). Justification: User needs to see if their remineralizer is pushing them into the "Scale" zone or "Sour" zone. Library: Chart.js.
+         3. Line Chart (Flow Profiling): Goal: Change/Plan. Shows Pressure vs Time. Interaction: Buttons to toggle between "Standard", "Turbo", and "Bianca Optimization". Justification: The Lelit Bianca's paddle is the key tool; visualizing the curve helps the user replicate it manually. Library: Chart.js.
+         4. Stacked Area Chart (Solubility): Goal: Teach Chemistry. Shows Extraction of Acid/Sugar/Bitter over time. Interaction: Slider to move "Time" and see the resulting flavor balance. Justification: Explains *why* the flow profile works. Library: Chart.js.
+    -->
+    <!-- CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
+</head>
+<body class="antialiased text-gray-800">
+
+    <!-- Navigation -->
+    <nav class="bg-white border-b border-gray-200 sticky top-0 z-50">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between h-16">
+                <div class="flex items-center">
+                    <div class="flex-shrink-0 flex items-center gap-2">
+                        <span class="text-2xl text-amber-700">●</span>
+                        <h1 class="text-xl font-bold tracking-tight text-gray-900">Espresso<span class="text-amber-700 font-serif italic">Lab</span></h1>
+                    </div>
+                </div>
+                <div class="hidden sm:ml-6 sm:flex sm:space-x-8" id="nav-container">
+                    <button onclick="switchTab('resumen')" class="active-nav inline-flex items-center px-1 pt-1 text-sm font-medium text-gray-900 h-full border-b-2 border-transparent hover:border-amber-500">Resumen</button>
+                    <button onclick="switchTab('agua')" class="inline-flex items-center px-1 pt-1 text-sm font-medium text-gray-500 h-full border-b-2 border-transparent hover:border-amber-500 hover:text-gray-700">Química del Agua</button>
+                    <button onclick="switchTab('flujo')" class="inline-flex items-center px-1 pt-1 text-sm font-medium text-gray-500 h-full border-b-2 border-transparent hover:border-amber-500 hover:text-gray-700">Física de Flujo (Lelit)</button>
+                    <button onclick="switchTab('extraccion')" class="inline-flex items-center px-1 pt-1 text-sm font-medium text-gray-500 h-full border-b-2 border-transparent hover:border-amber-500 hover:text-gray-700">Química de Extracción</button>
+                </div>
+                <!-- Mobile menu button -->
+                <div class="-mr-2 flex items-center sm:hidden">
+                    <button type="button" onclick="toggleMobileMenu()" class="inline-flex items-center justify-center p-2 rounded-md text-gray-400 hover:text-gray-500 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-amber-500">
+                        <span class="text-2xl">≡</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+        <!-- Mobile Menu -->
+        <div class="sm:hidden hidden bg-white shadow-lg" id="mobile-menu">
+            <div class="pt-2 pb-4 space-y-1 px-4">
+                <button onclick="switchTab('resumen'); toggleMobileMenu()" class="block w-full text-left pl-3 pr-4 py-2 border-l-4 border-amber-500 text-base font-medium text-amber-700 bg-amber-50">Resumen</button>
+                <button onclick="switchTab('agua'); toggleMobileMenu()" class="block w-full text-left pl-3 pr-4 py-2 border-l-4 border-transparent text-base font-medium text-gray-600 hover:bg-gray-50 hover:border-gray-300 hover:text-gray-800">Química del Agua</button>
+                <button onclick="switchTab('flujo'); toggleMobileMenu()" class="block w-full text-left pl-3 pr-4 py-2 border-l-4 border-transparent text-base font-medium text-gray-600 hover:bg-gray-50 hover:border-gray-300 hover:text-gray-800">Física de Flujo</button>
+                <button onclick="switchTab('extraccion'); toggleMobileMenu()" class="block w-full text-left pl-3 pr-4 py-2 border-l-4 border-transparent text-base font-medium text-gray-600 hover:bg-gray-50 hover:border-gray-300 hover:text-gray-800">Extracción & Crema</button>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+
+        <!-- SECTION 1: RESUMEN / SETUP -->
+        <section id="resumen" class="fade-in space-y-8">
+            <div class="text-center max-w-3xl mx-auto mb-10">
+                <h2 class="text-3xl font-serif font-bold text-gray-900 mb-4">Análisis del Perfil de Infusión</h2>
+                <p class="text-lg text-gray-600">
+                    Configuración para <strong>Uganda Bugisu AA (SL14)</strong> con <strong>Lelit Bianca v3</strong>.
+                    Objetivo: <em>Acidez moderada, cuerpo pleno.</em>
+                </p>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <!-- Bean Analysis Card -->
+                <div class="card p-6 border-t-4 border-amber-800">
+                    <h3 class="text-xl font-bold mb-4 flex items-center gap-2">
+                        <span class="text-2xl">☕</span> El Grano: Bugisu AA (SL14)
+                    </h3>
+                    <div class="prose text-gray-600 text-sm mb-4">
+                        <p><strong>Origen:</strong> Montes Okoro, Uganda (1200-2200 msnm).</p>
+                        <p><strong>Variedad SL14:</strong> Una selección derivada de Bourbon con tipología Keniana. A esta altitud, el grano es muy denso (Hard Bean).</p>
+                        <p><strong>Potencial:</strong> Los Bugisu lavados suelen tener notas cítricas y de frutos rojos con un cuerpo vinoso. Para lograr "cuerpo pleno" y domar la acidez, necesitamos alta extracción térmica y un perfil de presión específico.</p>
+                    </div>
+                    <div class="chart-container h-64">
+                        <canvas id="beanRadarChart"></canvas>
+                    </div>
+                </div>
+
+                <!-- Setup Summary Card -->
+                <div class="card p-6 border-t-4 border-slate-600">
+                    <h3 class="text-xl font-bold mb-4 flex items-center gap-2">
+                        <span class="text-2xl">⚙️</span> Sistema de Extracción
+                    </h3>
+                    <ul class="space-y-4 text-sm text-gray-700">
+                        <li class="flex items-start gap-3">
+                            <span class="bg-slate-100 p-2 rounded-full text-slate-700 font-bold text-xs w-8 h-8 flex items-center justify-center">1</span>
+                            <div>
+                                <strong class="block text-gray-900">Máquina: Lelit Bianca v3</strong>
+                                <span class="text-gray-500">Grupo E61 con Paddle. La herramienta clave aquí es la pre-infusión manual para ablandar la fibra densa del SL14 antes de la presión máxima.</span>
+                            </div>
+                        </li>
+                        <li class="flex items-start gap-3">
+                            <span class="bg-slate-100 p-2 rounded-full text-slate-700 font-bold text-xs w-8 h-8 flex items-center justify-center">2</span>
+                            <div>
+                                <strong class="block text-gray-900">Agua: Hoyo de Manzanares</strong>
+                                <span class="text-gray-500">Sierra de Guadarrama. Típicamente blanda/granítica. Requiere gestión cuidadosa del buffer (alcalinidad) para no aplanar la acidez ni hacer el café agrio.</span>
+                            </div>
+                        </li>
+                        <li class="flex items-start gap-3">
+                            <span class="bg-slate-100 p-2 rounded-full text-slate-700 font-bold text-xs w-8 h-8 flex items-center justify-center">3</span>
+                            <div>
+                                <strong class="block text-gray-900">Filtración: WD-RF10 + MNR35</strong>
+                                <span class="text-gray-500">El carbón activo elimina cloro (esencial). La remineralización es crítica aquí para añadir Magnesio (ayuda a extraer dulzor) sin excederse en Calcio (sarro).</span>
+                            </div>
+                        </li>
+                    </ul>
+                    <div class="mt-6 p-4 bg-amber-50 rounded-lg border border-amber-100">
+                        <p class="text-amber-800 font-semibold text-sm">💡 Estrategia Principal</p>
+                        <p class="text-amber-700 text-sm mt-1">Usar el control de flujo para extender la fase de contacto agua-café, permitiendo que el agua remineralizada extraiga los lípidos (cuerpo) y amortigüe la acidez brillante del SL14.</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- SECTION 2: WATER CHEMISTRY -->
+        <section id="agua" class="hidden-section fade-in space-y-8">
+            <div class="max-w-4xl mx-auto">
+                <div class="mb-8">
+                    <h2 class="text-3xl font-serif font-bold text-gray-900">Laboratorio de Química del Agua</h2>
+                    <p class="mt-2 text-gray-600">
+                        El agua es el 98% de tu espresso. El agua de Hoyo de Manzanares es blanda. Tu sistema remineralizador añade iones.
+                        Ajusta la dureza base estimada para ver si tu configuración actual es óptima.
+                    </p>
+                </div>
+
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                    <!-- Controls -->
+                    <div class="card p-6 col-span-1 lg:col-span-1 bg-white">
+                        <h3 class="font-bold text-lg mb-4 text-gray-800">Simulador de Entrada</h3>
+                        
+                        <div class="mb-6">
+                            <label class="block text-sm font-medium text-gray-700 mb-2">
+                                Dureza Base (Hoyo de Manz.) TDS: <span id="tdsVal" class="font-bold text-amber-600">30</span> ppm
+                            </label>
+                            <input type="range" min="10" max="100" value="30" class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer" id="tdsInput">
+                            <p class="text-xs text-gray-500 mt-1">El agua de la sierra suele estar entre 20-50 ppm.</p>
+                        </div>
+
+                        <div class="mb-6">
+                            <label class="block text-sm font-medium text-gray-700 mb-2">
+                                Potencia Remineralizador (WD-MNR35)
+                            </label>
+                            <select id="reminLevel" class="block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-amber-500 focus:border-amber-500 sm:text-sm rounded-md border">
+                                <option value="low">Baja (Filtro gastado)</option>
+                                <option value="optimal" selected>Óptima (Estándar)</option>
+                                <option value="high">Alta (Filtro nuevo/Lento)</option>
+                            </select>
+                        </div>
+
+                        <div class="p-4 bg-slate-50 rounded border border-slate-200">
+                            <h4 class="font-bold text-sm text-slate-700">Diagnóstico:</h4>
+                            <p id="waterDiagnosis" class="text-sm text-slate-600 mt-2">Calculando...</p>
+                        </div>
+                    </div>
+
+                    <!-- Visualizer -->
+                    <div class="card p-6 col-span-1 lg:col-span-2">
+                        <h3 class="font-bold text-lg mb-2 text-gray-800">Composición Final Estimada vs Objetivo SCA</h3>
+                        <div class="chart-container">
+                            <canvas id="waterChart"></canvas>
+                        </div>
+                        <div class="mt-4 grid grid-cols-2 gap-4 text-xs text-gray-500">
+                            <div>
+                                <strong class="text-gray-700">Magnesio (Mg²+):</strong> Clave para extraer notas frutales y dulzor. Vital para la variedad SL14.
+                            </div>
+                            <div>
+                                <strong class="text-gray-700">Alcalinidad (Buffer):</strong> Neutraliza ácidos. Si es baja, el café es agrio. Si es alta, es plano.
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Theory Block -->
+                <div class="mt-8 bg-blue-50 border-l-4 border-blue-500 p-4 rounded-r-lg">
+                    <h4 class="font-bold text-blue-900">¿Es adecuado tu sistema?</h4>
+                    <p class="text-sm text-blue-800 mt-1">
+                        Para Hoyo de Manzanares (blanda), el sistema de remineralización es <strong>necesario</strong>. Sin él, el agua ácida y vacía produciría un espresso agrio y sin cuerpo. El objetivo ideal es llegar a ~80-100 ppm de Dureza Total con 40 ppm de Alcalinidad. Si el filtro sube demasiado la dureza (>150), perderás claridad. Si no sube la alcalinidad, la acidez del Bugisu será cortante.
+                    </p>
+                </div>
+            </div>
+        </section>
+
+        <!-- SECTION 3: FLOW PHYSICS -->
+        <section id="flujo" class="hidden-section fade-in space-y-8">
+            <div class="max-w-5xl mx-auto">
+                <div class="mb-8">
+                    <h2 class="text-3xl font-serif font-bold text-gray-900">Física de Flujo: Perfil Lelit Bianca</h2>
+                    <p class="mt-2 text-gray-600">
+                        La Lelit Bianca te permite controlar el flujo (y por ende la presión) en tiempo real. 
+                        Para el grano <strong>Bugisu SL14 (Denso/Altura)</strong>, necesitamos un perfil que asegure extracción completa (cuerpo) sin extraer taninos secos al final.
+                    </p>
+                </div>
+
+                <div class="grid grid-cols-1 lg:grid-cols-4 gap-6">
+                    <!-- Profile Selector -->
+                    <div class="col-span-1 space-y-2">
+                        <p class="text-xs font-bold uppercase text-gray-500 tracking-wide mb-2">Seleccionar Perfil</p>
+                        <button onclick="updateFlowChart('traditional')" class="w-full text-left px-4 py-3 rounded-lg border border-gray-200 hover:bg-amber-50 focus:ring-2 focus:ring-amber-500 transition-colors bg-white shadow-sm">
+                            <span class="block font-bold text-gray-800">1. E61 Tradicional</span>
+                            <span class="text-xs text-gray-500">Presión constante 9 bar.</span>
+                        </button>
+                        <button onclick="updateFlowChart('turbo')" class="w-full text-left px-4 py-3 rounded-lg border border-gray-200 hover:bg-amber-50 focus:ring-2 focus:ring-amber-500 transition-colors bg-white shadow-sm">
+                            <span class="block font-bold text-gray-800">2. Turbo Shot</span>
+                            <span class="text-xs text-gray-500">Rápido, 6 bar, molienda gruesa.</span>
+                        </button>
+                        <button onclick="updateFlowChart('optimized')" class="w-full text-left px-4 py-3 rounded-lg border-2 border-amber-600 bg-amber-50 shadow-md">
+                            <span class="block font-bold text-amber-900">3. Óptimo Bugisu AA</span>
+                            <span class="text-xs text-amber-800">Pre-infusión larga + Declive.</span>
+                        </button>
+                    </div>
+
+                    <!-- Main Chart -->
+                    <div class="col-span-1 lg:col-span-3 card p-6">
+                        <div class="flex justify-between items-center mb-4">
+                            <h3 id="chartTitle" class="font-bold text-lg text-gray-800">Perfil Óptimo para Lelit Bianca</h3>
+                            <span class="bg-amber-100 text-amber-800 text-xs px-2 py-1 rounded-full font-semibold">Recomendado</span>
+                        </div>
+                        <div class="chart-container">
+                            <canvas id="flowChart"></canvas>
+                        </div>
+                        <div id="profileDescription" class="mt-4 p-4 bg-gray-50 rounded text-sm text-gray-700 border-l-4 border-amber-500">
+                            <!-- JS fills this -->
+                        </div>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mt-8">
+                    <div class="p-4 bg-white rounded-lg shadow-sm border border-gray-100">
+                        <h4 class="font-bold text-amber-800 mb-2">Fase 1: Pre-infusión (Blooming)</h4>
+                        <p class="text-sm text-gray-600">Abre el paddle mínimamente. Mantén ~2 bar por 10-15s. Esto hincha el grano denso de altura y reduce la canalización, aumentando el cuerpo.</p>
+                    </div>
+                    <div class="p-4 bg-white rounded-lg shadow-sm border border-gray-100">
+                        <h4 class="font-bold text-amber-800 mb-2">Fase 2: Pico de Presión</h4>
+                        <p class="text-sm text-gray-600">Sube a 9 bar. Aquí ocurre la emulsificación de aceites (crema) y la extracción de acidez frutal y azúcares principales.</p>
+                    </div>
+                    <div class="p-4 bg-white rounded-lg shadow-sm border border-gray-100">
+                        <h4 class="font-bold text-amber-800 mb-2">Fase 3: Declive (Tapering)</h4>
+                        <p class="text-sm text-gray-600">Baja gradualmente el paddle a 6 bar y luego 4 bar. A medida que el puck se erosiona, bajar el flujo evita extraer sabores amargos y astringentes finales.</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- SECTION 4: EXTRACTION & FOAM -->
+        <section id="extraccion" class="hidden-section fade-in space-y-8">
+            <div class="max-w-5xl mx-auto">
+                <div class="mb-8">
+                    <h2 class="text-3xl font-serif font-bold text-gray-900">Química: Extracción y Crema</h2>
+                    <p class="mt-2 text-gray-600">
+                        Entender qué estás extrayendo en cada segundo es vital para cortar el espresso en el momento perfecto de "Cuerpo Pleno".
+                    </p>
+                </div>
+
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                    <!-- Extraction Chart -->
+                    <div class="card p-6">
+                        <h3 class="font-bold text-lg mb-4 text-gray-800">Curva de Solubilidad</h3>
+                        <p class="text-xs text-gray-500 mb-4">Mueve el slider para simular el corte de la extracción.</p>
+                        
+                        <div class="chart-container h-56 mb-6">
+                            <canvas id="solubilityChart"></canvas>
+                        </div>
+
+                        <div class="flex items-center gap-4 mb-2">
+                            <span class="text-xs font-bold text-gray-500">Tiempo:</span>
+                            <input type="range" min="0" max="40" value="28" class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer" id="extractionTimeSlider">
+                            <span id="timeVal" class="text-sm font-mono font-bold w-12 text-center">28s</span>
+                        </div>
+                        <div class="p-3 bg-gray-50 rounded border border-gray-200 text-center">
+                            <span id="tasteResult" class="font-bold text-amber-700 text-sm">Balanceado: Dulce y con Cuerpo</span>
+                        </div>
+                    </div>
+
+                    <!-- Crema Physics -->
+                    <div class="card p-6 bg-slate-800 text-white">
+                        <h3 class="font-bold text-lg mb-4 text-amber-400">La Física de la Crema</h3>
+                        <div class="space-y-6 text-sm text-slate-300">
+                            <div>
+                                <strong class="text-white block mb-1">¿Qué es?</strong>
+                                Una espuma coloidal polifásica. Gas CO₂ atrapado en una emulsión de aceites de café (lípidos) rodeados de tensioactivos líquidos.
+                            </div>
+                            
+                            <div class="grid grid-cols-2 gap-4 my-4">
+                                <div class="bg-slate-700 p-3 rounded text-center">
+                                    <div class="text-2xl mb-1">🫧</div>
+                                    <div class="font-bold text-white">CO₂</div>
+                                    <div class="text-xs">Presurizado a 9 Bar</div>
+                                </div>
+                                <div class="bg-slate-700 p-3 rounded text-center">
+                                    <div class="text-2xl mb-1">💧</div>
+                                    <div class="font-bold text-white">Lípidos</div>
+                                    <div class="text-xs">Aceites del Bugisu</div>
+                                </div>
+                            </div>
+
+                            <div>
+                                <strong class="text-white block mb-1">Aporte Organoléptico:</strong>
+                                <ul class="list-disc pl-4 space-y-1">
+                                    <li><strong>Textura:</strong> Aporta "peso" en lengua (Body).</li>
+                                    <li><strong>Aroma:</strong> Actúa como tapadera, liberando volátiles retronasales al romperse.</li>
+                                    <li><strong>Sabor:</strong> Por sí misma es amarga (ácido carbónico). ¡Mézclala antes de beber!</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-white border-l-4 border-green-500 p-6 rounded shadow-sm mt-6">
+                    <h3 class="font-bold text-green-800 text-lg mb-2">Conclusión Final para tu Setup</h3>
+                    <p class="text-gray-700">
+                        Con el agua blanda de Hoyo filtrada y remineralizada, tienes una base limpia. Para maximizar el <strong>Uganda Bugisu</strong>:
+                        1. <strong>Muele ligeramente más fino</strong> de lo normal.
+                        2. Usa la <strong>Pre-infusión larga (15s)</strong> en la Lelit para saturar el grano denso.
+                        3. Extrae con una rampa suave a 9 bar y <strong>corta el flujo a 4-5 bar</strong> al final.
+                        Esto te dará ese "cuerpo pleno" sin acidez punzante, aprovechando el magnesio añadido por tu filtro WD-MNR35.
+                    </p>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <footer class="bg-gray-100 py-8 mt-12 border-t border-gray-200">
+        <div class="max-w-7xl mx-auto px-4 text-center text-gray-500 text-sm">
+            <p>&copy; 2026 Análisis de Ingeniería del Café. Generado para perfil Lelit Bianca v3.</p>
+        </div>
+    </footer>
+
+    <script>
+        // --- NAVIGATION LOGIC ---
+        function switchTab(tabId) {
+            // Hide all sections
+            document.querySelectorAll('section').forEach(el => {
+                el.classList.add('hidden-section');
+            });
+            // Show target section
+            const target = document.getElementById(tabId);
+            target.classList.remove('hidden-section');
+            
+            // Re-trigger animation
+            target.classList.remove('fade-in');
+            void target.offsetWidth; // trigger reflow
+            target.classList.add('fade-in');
+
+            // Update Nav Classes
+            document.querySelectorAll('#nav-container button').forEach(btn => {
+                btn.classList.remove('active-nav', 'text-gray-900');
+                btn.classList.add('text-gray-500');
+                if(btn.getAttribute('onclick').includes(tabId)) {
+                    btn.classList.add('active-nav', 'text-gray-900');
+                    btn.classList.remove('text-gray-500');
+                }
+            });
+
+            // Refresh charts if needed (fixes sizing in hidden tabs)
+            if(tabId === 'agua' && window.waterChartInstance) window.waterChartInstance.resize();
+            if(tabId === 'flujo' && window.flowChartInstance) window.flowChartInstance.resize();
+            if(tabId === 'extraccion' && window.solubilityChartInstance) window.solubilityChartInstance.resize();
+        }
+
+        function toggleMobileMenu() {
+            const menu = document.getElementById('mobile-menu');
+            menu.classList.toggle('hidden');
+        }
+
+        // --- CHART 1: BEAN RADAR (RESUMEN) ---
+        const ctxBean = document.getElementById('beanRadarChart').getContext('2d');
+        new Chart(ctxBean, {
+            type: 'radar',
+            data: {
+                labels: ['Cuerpo', 'Acidez', 'Dulzor', 'Amargor', 'Aroma Frutal'],
+                datasets: [{
+                    label: 'Perfil Natural Bugisu SL14',
+                    data: [8, 7, 6, 4, 7],
+                    fill: true,
+                    backgroundColor: 'rgba(140, 107, 79, 0.2)',
+                    borderColor: 'rgba(140, 107, 79, 1)',
+                    pointBackgroundColor: 'rgba(140, 107, 79, 1)',
+                    pointBorderColor: '#fff',
+                    pointHoverBackgroundColor: '#fff',
+                    pointHoverBorderColor: 'rgba(140, 107, 79, 1)'
+                }, {
+                    label: 'Objetivo de Extracción',
+                    data: [9, 5, 8, 3, 6], // More Body, Moderated Acidity, Higher Sweetness
+                    fill: true,
+                    backgroundColor: 'rgba(217, 119, 6, 0.2)',
+                    borderColor: 'rgba(217, 119, 6, 1)',
+                    pointBackgroundColor: 'rgba(217, 119, 6, 1)',
+                    borderDash: [5, 5]
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                elements: { line: { borderWidth: 3 } },
+                scales: {
+                    r: {
+                        angleLines: { display: true },
+                        suggestedMin: 0,
+                        suggestedMax: 10,
+                        ticks: { display: false }
+                    }
+                },
+                plugins: {
+                    legend: { position: 'bottom' }
+                }
+            }
+        });
+
+        // --- CHART 2: WATER CHEMISTRY LAB ---
+        const ctxWater = document.getElementById('waterChart').getContext('2d');
+        let waterChartInstance;
+
+        function initWaterChart() {
+            waterChartInstance = new Chart(ctxWater, {
+                type: 'bar',
+                data: {
+                    labels: ['Dureza Total (GH)', 'Alcalinidad (KH)', 'Magnesio', 'Calcio'],
+                    datasets: [
+                        {
+                            label: 'Tu Agua (Estimada)',
+                            data: [60, 30, 10, 20], // Initial dummy
+                            backgroundColor: '#3b82f6'
+                        },
+                        {
+                            label: 'Rango SCA Ideal',
+                            data: [80, 40, 20, 30], // Reference
+                            type: 'line',
+                            borderColor: '#10b981',
+                            borderWidth: 2,
+                            borderDash: [5, 5],
+                            pointRadius: 0
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: { beginAtZero: true, title: { display: true, text: 'ppm (mg/L)' } }
+                    },
+                    plugins: {
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    if (context.dataset.type === 'line') return 'Objetivo Ideal: ' + context.raw;
+                                    return context.raw + ' ppm';
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+            updateWaterCalc();
+        }
+
+        // Logic for Water Calculation
+        const tdsInput = document.getElementById('tdsInput');
+        const tdsVal = document.getElementById('tdsVal');
+        const reminLevel = document.getElementById('reminLevel');
+        const diagnosis = document.getElementById('waterDiagnosis');
+
+        function updateWaterCalc() {
+            const baseTDS = parseInt(tdsInput.value);
+            tdsVal.textContent = baseTDS;
+            
+            // Basic Chemistry Simulation for WD-MNR35
+            // Assumption: Remineralizer adds mostly Mg and some Ca, increases Alkalinity slightly
+            let addedGH = 0;
+            let addedKH = 0;
+            let addedMg = 0;
+            let addedCa = 0;
+
+            const mode = reminLevel.value;
+            if (mode === 'low') { addedGH = 20; addedKH = 10; addedMg = 12; addedCa = 8; }
+            else if (mode === 'optimal') { addedGH = 50; addedKH = 25; addedMg = 30; addedCa = 20; }
+            else if (mode === 'high') { addedGH = 80; addedKH = 40; addedMg = 45; addedCa = 35; }
+
+            // Base water composition assumption (Hoyo soft water)
+            // Soft water usually low alkalinity, low Ca/Mg
+            const baseGH = baseTDS * 0.9;
+            const baseKH = baseTDS * 0.4;
+            
+            const totalGH = baseGH + addedGH;
+            const totalKH = baseKH + addedKH;
+            const totalMg = (baseGH * 0.3) + addedMg; // Assume base has little Mg
+            const totalCa = (baseGH * 0.7) + addedCa;
+
+            // Update Chart
+            waterChartInstance.data.datasets[0].data = [
+                Math.round(totalGH), 
+                Math.round(totalKH), 
+                Math.round(totalMg), 
+                Math.round(totalCa)
+            ];
+            
+            // Color logic
+            let statusColor = '#3b82f6'; // Blue default
+            let statusMsg = "";
+
+            if (totalGH < 50) {
+                statusColor = '#ef4444'; // Red
+                statusMsg = "Demasiado blanda. El café será agrio y delgado. Aumenta la remineralización.";
+            } else if (totalGH > 150) {
+                statusColor = '#f59e0b'; // Orange
+                statusMsg = "Demasiado dura. Riesgo de sarro en la Bianca. Perderás matices frutales.";
+            } else if (totalKH < 30) {
+                statusColor = '#eab308'; // Yellow
+                statusMsg = "Alcalinidad baja. La acidez del SL14 será punzante. Necesitas más buffer.";
+            } else {
+                statusColor = '#10b981'; // Green
+                statusMsg = "¡Zona Óptima! Balance excelente para cuerpo y acidez controlada.";
+            }
+
+            waterChartInstance.data.datasets[0].backgroundColor = statusColor;
+            waterChartInstance.update();
+            diagnosis.textContent = statusMsg;
+            diagnosis.style.color = statusColor === '#eab308' ? '#b45309' : statusColor;
+        }
+
+        tdsInput.addEventListener('input', updateWaterCalc);
+        reminLevel.addEventListener('change', updateWaterCalc);
+
+        // --- CHART 3: FLOW PROFILE (LELIT BIANCA) ---
+        const ctxFlow = document.getElementById('flowChart').getContext('2d');
+        let flowChartInstance;
+        
+        // Data presets
+        const flowProfiles = {
+            traditional: {
+                label: "E61 Tradicional",
+                data: [0, 4, 9, 9, 9, 9, 9, 9, 9, 9, 9, 0],
+                desc: "Perfil plano estándar. Extracción agresiva constante. Puede resaltar demasiado la acidez brillante del Bugisu y dejar el cuerpo un poco delgado si hay canalización.",
+                color: "#94a3b8"
+            },
+            turbo: {
+                label: "Turbo Shot",
+                data: [0, 3, 6, 6, 6, 5, 4, 0, 0, 0, 0, 0], // Shorter
+                desc: "Extracción muy rápida (15s) a baja presión. Produce alta acidez y dulzor, pero textura muy ligera. No recomendado si buscas 'Cuerpo Pleno'.",
+                color: "#f472b6"
+            },
+            optimized: {
+                label: "Óptimo Bugisu (Bianca)",
+                data: [0, 2, 2, 2, 2, 9, 9, 8, 7, 6, 5, 4], // Long pre-infusion, taper
+                desc: "Pre-infusión larga (baja flujo) para hinchar la fibra. Pico a 9 bar para aceites. Declive final para evitar astringencia y mejorar textura.",
+                color: "#d97706"
+            }
+        };
+
+        function initFlowChart() {
+            flowChartInstance = new Chart(ctxFlow, {
+                type: 'line',
+                data: {
+                    labels: ['0s', '5s', '10s', '15s', '20s', '25s', '30s', '35s', '40s', '45s', '50s', '55s'],
+                    datasets: [{
+                        label: 'Presión (Bar)',
+                        data: flowProfiles.optimized.data,
+                        borderColor: flowProfiles.optimized.color,
+                        backgroundColor: 'rgba(217, 119, 6, 0.1)',
+                        fill: true,
+                        tension: 0.4,
+                        borderWidth: 3
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: { beginAtZero: true, max: 12, title: { display: true, text: 'Presión (Bar)' } }
+                    },
+                    plugins: {
+                        annotation: {
+                            annotations: {
+                                line1: {
+                                    type: 'line',
+                                    yMin: 9,
+                                    yMax: 9,
+                                    borderColor: 'rgba(0,0,0,0.1)',
+                                    borderWidth: 1,
+                                    label: { content: 'Max Pressure', enabled: true }
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+            document.getElementById('profileDescription').textContent = flowProfiles.optimized.desc;
+        }
+
+        function updateFlowChart(profileKey) {
+            const profile = flowProfiles[profileKey];
+            flowChartInstance.data.datasets[0].data = profile.data;
+            flowChartInstance.data.datasets[0].label = profile.label;
+            flowChartInstance.data.datasets[0].borderColor = profile.color;
+            flowChartInstance.data.datasets[0].backgroundColor = profile.color + "33"; // add alpha
+            
+            // Update UI text
+            document.getElementById('profileDescription').textContent = profile.desc;
+            document.getElementById('chartTitle').textContent = profile.label;
+            
+            // Update button styles
+            const buttons = document.querySelectorAll('#flujo button');
+            buttons.forEach(b => {
+                if(b.onclick.toString().includes(profileKey)) {
+                    b.classList.remove('border-gray-200', 'bg-white');
+                    b.classList.add('border-2', 'border-amber-600', 'bg-amber-50');
+                    b.querySelector('span').classList.add('text-amber-900');
+                } else {
+                    b.classList.add('border-gray-200', 'bg-white');
+                    b.classList.remove('border-2', 'border-amber-600', 'bg-amber-50');
+                    b.querySelector('span').classList.remove('text-amber-900');
+                }
+            });
+
+            flowChartInstance.update();
+        }
+
+        // --- CHART 4: SOLUBILITY (EXTRACTION) ---
+        const ctxSol = document.getElementById('solubilityChart').getContext('2d');
+        let solubilityChartInstance;
+
+        function initSolubilityChart() {
+            // Simplified Extraction Curves
+            const timeLabels = Array.from({length: 41}, (_, i) => i); // 0 to 40
+            
+            // Curves logic
+            const acids = timeLabels.map(t => Math.max(0, 100 - Math.exp(t/10) * 2)); // Extract fast, then drop relative percentage
+            // Correct approach: Cumulative Yield representation or Instantaneous? 
+            // Let's do Instantaneous flavor contribution to "Cup Profile"
+            
+            // Acids: Peak early (5-10s)
+            const acidCurve = timeLabels.map(t => {
+                if (t < 2) return 0;
+                return 100 * Math.exp(-(t-8)*(t-8)/50); 
+            });
+            
+            // Sugars: Peak middle (15-25s)
+            const sugarCurve = timeLabels.map(t => {
+                if (t < 5) return 0;
+                return 80 * Math.exp(-(t-20)*(t-20)/100);
+            });
+
+            // Bitters/Fibers: Rise late (25s+)
+            const bitterCurve = timeLabels.map(t => {
+                if (t < 15) return 0;
+                return 60 * (1 / (1 + Math.exp(-(t-30)/3)));
+            });
+
+            solubilityChartInstance = new Chart(ctxSol, {
+                type: 'line',
+                data: {
+                    labels: timeLabels,
+                    datasets: [
+                        { label: 'Ácidos / Sales', data: acidCurve, borderColor: '#fbbf24', backgroundColor: 'rgba(251, 191, 36, 0.4)', fill: true, tension: 0.4, pointRadius: 0 },
+                        { label: 'Azúcares / Aceites', data: sugarCurve, borderColor: '#d97706', backgroundColor: 'rgba(217, 119, 6, 0.4)', fill: true, tension: 0.4, pointRadius: 0 },
+                        { label: 'Fibras / Amargos', data: bitterCurve, borderColor: '#78350f', backgroundColor: 'rgba(120, 53, 15, 0.4)', fill: true, tension: 0.4, pointRadius: 0 }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: { display: false, min: 0 },
+                        x: { title: { display: true, text: 'Segundos de Extracción' } }
+                    },
+                    plugins: {
+                        tooltip: { mode: 'index', intersect: false }
+                    }
+                }
+            });
+            
+            // Add vertical line plugin manually or via update
+            updateExtractionCursor();
+        }
+
+        const timeSlider = document.getElementById('extractionTimeSlider');
+        const timeVal = document.getElementById('timeVal');
+        const tasteResult = document.getElementById('tasteResult');
+
+        function updateExtractionCursor() {
+            const val = parseInt(timeSlider.value);
+            timeVal.textContent = val + 's';
+            
+            // Simple Logic for Taste Text
+            if (val < 15) {
+                tasteResult.textContent = "Sub-extraído: Salado, Agrio, Sin cuerpo.";
+                tasteResult.className = "font-bold text-yellow-600 text-sm";
+            } else if (val < 22) {
+                tasteResult.textContent = "Ácido Brillante: Aceptable para cafés ligeros, falta dulzor.";
+                tasteResult.className = "font-bold text-amber-500 text-sm";
+            } else if (val < 32) {
+                tasteResult.textContent = "Balanceado: Dulzor máximo, acidez integrada, cuerpo sedoso.";
+                tasteResult.className = "font-bold text-green-600 text-sm";
+            } else {
+                tasteResult.textContent = "Sobre-extraído: Amargo, Seco, Astringente.";
+                tasteResult.className = "font-bold text-amber-900 text-sm";
+            }
+
+            // Draw vertical line on chart (hack using annotation or just updating title? Let's use active point highlighting if possible, but standard charts don't support vertical lines easily without plugins. We will assume the user correlates the X axis)
+            // Advanced: We could add a dataset that is just a vertical line, but for simplicity we rely on the X-axis label alignment.
+        }
+
+        timeSlider.addEventListener('input', updateExtractionCursor);
+
+        // --- INIT ALL ---
+        window.addEventListener('load', () => {
+            initWaterChart();
+            initFlowChart();
+            initSolubilityChart();
+            
+            // Fix initial rendering size issue by delaying slightly or triggering resize
+            setTimeout(() => {
+                switchTab('resumen'); // Ensure tab 1 is correctly sized
+            }, 100);
+        });
+
+    </script>
+</body>
+</html>
